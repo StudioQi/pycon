@@ -15,12 +15,6 @@ SEX_CHOICES = (
     (2, _('Male')),
 )
 
-PRESENTING_CHOICES = (
-    (1, _("Yes")),
-    (2, _("No")),
-    (3, _("I have applied but don't know yet")),
-)
-
 STATUS_SUBMITTED = 1
 STATUS_WITHDRAWN = 2
 STATUS_INFO_NEEDED = 3
@@ -95,11 +89,6 @@ class FinancialAidApplication(models.Model):
     use_of_python = models.CharField(
         verbose_name=_("Use of Python"),
         help_text=_("Describe your use of Python"), max_length=500)
-    presenting = models.IntegerField(
-        verbose_name=_("Presenting"),
-        help_text=_("Will you be speaking, hosting a poster session, "
-                    "or otherwise presenting at PyCon?"),
-        choices=PRESENTING_CHOICES)
     experience_level = models.CharField(
         verbose_name=_("Python experience level"),
         help_text=_("What is your experience level with Python?"),
@@ -121,6 +110,19 @@ class FinancialAidApplication(models.Model):
             return self.review.status
         except FinancialAidReviewData.DoesNotExist:
             return STATUS_SUBMITTED  # Default status
+
+    def get_presenting_display(self):
+        q = Q(speaker__user=self.user) | Q(additional_speakers__user=self.user)
+        proposals = ProposalBase.objects.filter(q, cancelled=False)
+        statuses = proposals.values_list('result__status', flat=True)
+        if not statuses:
+            return "Has not submitted a proposal"
+        elif all(status == 'rejected' for status in statuses):
+            return "No"
+        elif any(status == 'accepted' for status in statuses):
+            return "Yes"
+        else:
+            return "Has submitted a proposal"
 
     def get_status_display(self):
         try:
